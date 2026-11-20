@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BonnyUtilsPhone</title>
+<meta name="theme-color" content="#ffd700">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BonnyUtilsPhone">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: #fff8dc; color: #222; font: 17px/1.4 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; }
+  body { padding: env(safe-area-inset-top) 0 0; min-height: 100vh; display: flex; flex-direction: column; }
+  header { padding: 14px 16px 4px; }
+  header h1 { margin: 0; font-size: 22px; }
+  header p { margin: 2px 0 0; color: #666; font-size: 15px; }
+  main { flex: 1; padding: 0 16px 16px; }
+  label { display: block; font-weight: 700; margin: 14px 0 6px; }
+  input, textarea { width: 100%; padding: 12px; font-size: 19px; border: 1px solid #aaa; border-radius: 10px; background: #fff; color: #222; font-family: inherit; }
+  input:focus, textarea:focus { outline: 2px solid #d4a017; border-color: #d4a017; }
+  .riga { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .taglie { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .taglie button { padding: 12px 0; font-size: 16px; border-radius: 10px; border: 1px solid #aaa; background: #eee; color: #222; }
+  .taglie button.on { background: #ffd700; border-color: #c9a800; font-weight: 700; }
+  .taglie button.unica { grid-column: span 4; }
+  .due { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+  #capi { font-size: 32px; text-align: center; }
+  #riepilogo { text-align: center; color: #555; min-height: 1.4em; margin: 10px 0; }
+  #invia { width: 100%; height: 62px; font-size: 22px; font-weight: 700; border: 0; border-radius: 12px; background: #ffd700; color: #222; margin-top: 6px; }
+  #invia:disabled { opacity: .45; }
+  #esito { text-align: center; margin-top: 12px; min-height: 1.4em; font-weight: 600; }
+  .ok { color: #087a08; } .err { color: #b00000; } .attesa { color: #555; }
+  h2 { font-size: 17px; margin: 26px 0 8px; color: #555; }
+  .storico { list-style: none; padding: 0; margin: 0; font-size: 15px; }
+  .storico li { background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 8px 12px; margin-bottom: 6px; }
+  .storico small { color: #777; }
+  footer { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid #e3d9a8; font-size: 13px; color: #666; background: #fff5c8; }
+  .led { display: inline-flex; align-items: center; gap: 5px; margin-left: 12px; font-weight: 700; font-size: 12px; }
+  .led i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; box-shadow: inset -1px -1px 1px rgba(255,255,255,.5), inset 1px 1px 2px rgba(0,0,0,.6); }
+  #tx i { background: #0b4a0b; } #tx.on i { background: radial-gradient(#b4ffb4, #00aa00); }
+  #rx i { background: #5a4b00; } #rx.on i { background: radial-gradient(#ffff96, #e6b400); }
+  #nonconfig { display: none; padding: 40px 24px; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="titolo">BonnyUtilsPhone</h1>
+  <p id="sottotitolo">Nuovo ordine</p>
+</header>
+
+<div id="nonconfig">
+  <p><b>App non configurata.</b></p>
+  <p>Apri il link personale che ti abbiamo mandato su WhatsApp.</p>
+</div>
+
+<main id="modulo">
+  <div class="riga">
+    <div><label for="co">Comm.</label><input id="co" maxlength="10" autocapitalize="characters" autocomplete="off"></div>
+    <div><label for="ar">Articolo</label><input id="ar" maxlength="10" autocapitalize="characters" autocomplete="off"></div>
+    <div><label for="ct">Cotta</label><input id="ct" maxlength="10" autocapitalize="characters" autocomplete="off"></div>
+  </div>
+
+  <label>Taglia</label>
+  <div class="taglie" id="taglie"></div>
+
+  <div class="due">
+    <div><label for="capi">N. capi</label><input id="capi" type="number" inputmode="numeric" min="1" max="99999"></div>
+    <div><label for="pr">Prezzo a maglia € <small style="font-weight:400;color:#777">(facoltativo)</small></label><input id="pr" inputmode="decimal" placeholder="es. 1,20"></div>
+  </div>
+
+  <label for="note">Note <small style="font-weight:400;color:#777">(facoltative)</small></label>
+  <textarea id="note" rows="2" maxlength="300"></textarea>
+
+  <div id="riepilogo"></div>
+  <button id="invia" type="button">INVIA ORDINE</button>
+  <div id="esito"></div>
+
+  <h2 id="titoloStorico" hidden>Ordini inviati da questo telefono</h2>
+  <ul class="storico" id="storico"></ul>
+</main>
+
+<footer>
+  <span id="versione">BonnyUtilsPhone</span>
+  <span><span class="led" id="tx"><i></i>TX</span><span class="led" id="rx"><i></i>RX</span></span>
+</footer>
+
+<script>
+'use strict';
+const VERSIONE = '1.0';
+const TAGLIE = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Taglia unica'];
+const $ = id => document.getElementById(id);
+$('versione').textContent = 'BonnyUtilsPhone v' + VERSIONE;
+
+// ---------------------------------------------------------------- configurazione
+// Il link personale contiene dopo il "#": c = numero cliente, n = nome, k = chiave,
+// t = token del bot dei clienti, ch = canale ordini. La parte dopo "#" non arriva mai al server.
+function leggiConfig() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('c') && h.get('k') && h.get('t') && h.get('ch')) {
+    const cfg = { c: h.get('c'), n: h.get('n') || '', k: h.get('k'), t: h.get('t'), ch: h.get('ch') };
+    try { localStorage.setItem('cfg', JSON.stringify(cfg)); } catch (e) {}
+    return cfg;
+  }
+  try { return JSON.parse(localStorage.getItem('cfg') || 'null'); } catch (e) { return null; }
+}
+const cfg = leggiConfig();
+if (!cfg) {
+  $('modulo').style.display = 'none';
+  $('nonconfig').style.display = 'block';
+} else {
+  $('titolo').textContent = cfg.n || 'BonnyUtilsPhone';
+}
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+// ---------------------------------------------------------------- spie TX / RX
+function lampo(id) {
+  const el = $(id);
+  el.classList.add('on');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('on'), 220);
+}
+
+// ---------------------------------------------------------------- modulo
+let taglia = '';
+for (const t of TAGLIE) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = t;
+  if (t === 'Taglia unica') b.className = 'unica';
+  b.onclick = () => {
+    taglia = taglia === t ? '' : t;
+    for (const x of $('taglie').children) x.classList.toggle('on', x.textContent === taglia);
+    aggiorna();
+  };
+  $('taglie').appendChild(b);
+}
+
+function prezzo() {
+  const t = $('pr').value.trim().replace('€', '').replace(',', '.');
+  if (!t) return '';
+  const p = Number(t);
+  return isFinite(p) && p >= 0 && p < 100000 ? p.toFixed(2) : null;
+}
+
+let inInvio = false;
+function aggiorna() {
+  const n = parseInt($('capi').value, 10);
+  if (n > 0) {
+    const pieni = Math.floor(n / 25), resto = n % 25, fogli = pieni + (resto ? 1 : 0);
+    let s = fogli + (fogli === 1 ? ' foglio' : ' fogli') + ' (' + pieni + ' da 25' + (resto ? ' + 1 da ' + resto : '') + ')';
+    const p = prezzo();
+    if (p) s += ' · Totale ' + (n * Number(p)).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
+    $('riepilogo').textContent = s;
+  } else {
+    $('riepilogo').textContent = '';
+  }
+  const pronto = $('co').value.trim() && $('ar').value.trim() && $('ct').value.trim() && n > 0 && n <= 99999 && prezzo() !== null;
+  $('invia').disabled = !pronto || inInvio;
+}
+for (const id of ['co', 'ar', 'ct', 'capi', 'pr', 'note']) $(id).addEventListener('input', aggiorna);
+
+// ---------------------------------------------------------------- cifratura (AES-256-CBC + HMAC-SHA256)
+function b64url(buf) {
+  let s = '';
+  for (const b of new Uint8Array(buf)) s += String.fromCharCode(b);
+  return btoa(s).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+function daB64url(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  return Uint8Array.from(atob(s), c => c.charCodeAt(0));
+}
+async function cifra(testo) {
+  const chiave = daB64url(cfg.k);
+  const kAes = await crypto.subtle.importKey('raw', chiave.slice(0, 32), 'AES-CBC', false, ['encrypt']);
+  const kMac = await crypto.subtle.importKey('raw', chiave.slice(32, 64), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const iv = crypto.getRandomValues(new Uint8Array(16));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, kAes, new TextEncoder().encode(testo));
+  const ivS = b64url(iv), ctS = b64url(ct);
+  const firma = await crypto.subtle.sign('HMAC', kMac, new TextEncoder().encode(cfg.c + '.' + ivS + '.' + ctS));
+  return '#ORD ' + cfg.c + ' ' + ivS + '.' + ctS + '.' + b64url(firma);
+}
+
+// ---------------------------------------------------------------- invio
+async function invia() {
+  if (inInvio) return;
+  const n = parseInt($('capi').value, 10);
+  const ordine = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+    co: $('co').value.trim(), ar: $('ar').value.trim(), ct: $('ct').value.trim(),
+    tg: taglia, capi: n, pr: prezzo() || '', note: $('note').value.trim(), ts: new Date().toISOString()
+  };
+  if (!confirm('Inviare l\'ordine?\n\nComm. ' + ordine.co + ' · Art. ' + ordine.ar + ' · Cotta ' + ordine.ct +
+      '\nTaglia ' + (ordine.tg || '-') + ' · ' + n + ' capi' + (ordine.pr ? ' · € ' + ordine.pr.replace('.', ',') + ' a maglia' : ''))) return;
+
+  inInvio = true; aggiorna();
+  $('esito').className = 'attesa';
+  $('esito').textContent = 'Invio in corso...';
+  try {
+    const testo = await cifra(JSON.stringify(ordine));
+    const corpo = new URLSearchParams({ chat_id: cfg.ch, text: testo });
+    const url = 'https://api.telegram.org/bot' + cfg.t + '/sendMessage';
+    let confermato = false;
+    lampo('tx');
+    try {
+      const r = await fetch(url, { method: 'POST', body: corpo });
+      lampo('rx');
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.description || 'errore');
+      confermato = true;
+    } catch (e) {
+      if (e instanceof TypeError) {
+        // Il browser non ha potuto leggere la risposta: rimando senza leggerla
+        // (se arriva due volte, il PC scarta il doppione).
+        lampo('tx');
+        await fetch(url, { method: 'POST', body: corpo, mode: 'no-cors' });
+      } else {
+        throw e;
+      }
+    }
+    salvaStorico(ordine);
+    $('esito').className = 'ok';
+    $('esito').textContent = confermato ? '✅ Ordine inviato!' : '✅ Ordine inviato';
+    for (const id of ['co', 'ar', 'ct', 'capi', 'pr', 'note']) $(id).value = '';
+    taglia = '';
+    for (const x of $('taglie').children) x.classList.remove('on');
+  } catch (e) {
+    $('esito').className = 'err';
+    $('esito').textContent = '❌ Ordine non inviato: ' + (navigator.onLine === false ? 'nessuna connessione' : e.message) + '. Riprova.';
+  } finally {
+    inInvio = false; aggiorna();
+  }
+}
+$('invia').addEventListener('click', invia);
+
+// ---------------------------------------------------------------- storico locale
+function leggiStorico() {
+  try { return JSON.parse(localStorage.getItem('storico') || '[]'); } catch (e) { return []; }
+}
+function salvaStorico(o) {
+  const s = leggiStorico();
+  s.unshift(o);
+  try { localStorage.setItem('storico', JSON.stringify(s.slice(0, 30))); } catch (e) {}
+  mostraStorico();
+}
+function mostraStorico() {
+  const s = leggiStorico();
+  $('titoloStorico').hidden = s.length === 0;
+  const ul = $('storico');
+  ul.innerHTML = '';
+  for (const o of s) {
+    const li = document.createElement('li');
+    const d = new Date(o.ts);
+    li.textContent = 'Comm. ' + o.co + ' · Art. ' + o.ar + ' · ' + (o.tg || '-') + ' · ' + o.capi + ' capi' +
+      (o.pr ? ' · € ' + String(o.pr).replace('.', ',') : '');
+    const small = document.createElement('small');
+    small.textContent = '  ' + d.toLocaleDateString('it-IT') + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    li.appendChild(document.createElement('br'));
+    li.appendChild(small);
+    ul.appendChild(li);
+  }
+}
+mostraStorico();
+aggiorna();
+</script>
+</body>
+</html>
