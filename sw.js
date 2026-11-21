@@ -1,6 +1,6 @@
 // Service worker: tiene in cache i file dell'app così si apre anche con rete scarsa.
 // Prima prova la rete (per avere sempre l'ultima versione), poi la cache.
-const CACHE = 'bonnyutilsphone-v1';
+const CACHE = 'bonnyutilsphone-v2';
 const FILE = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

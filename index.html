@@ -24,12 +24,24 @@
   input, textarea { width: 100%; padding: 12px; font-size: 19px; border: 1px solid #aaa; border-radius: 10px; background: #fff; color: #222; font-family: inherit; }
   input:focus, textarea:focus { outline: 2px solid #d4a017; border-color: #d4a017; }
   .riga { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-  .taglie { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .taglie button { padding: 12px 0; font-size: 16px; border-radius: 10px; border: 1px solid #aaa; background: #eee; color: #222; }
-  .taglie button.on { background: #ffd700; border-color: #c9a800; font-weight: 700; }
-  .taglie button.unica { grid-column: span 4; }
-  .due { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
-  #capi { font-size: 32px; text-align: center; }
+  .sezione { display: flex; justify-content: space-between; align-items: baseline; margin: 18px 0 8px; }
+  .sezione label { margin: 0; }
+  .sezione span { color: #666; font-size: 15px; }
+  .rigat { background: #fff; border: 1px solid #ddd; border-radius: 14px; padding: 10px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.06); position: relative; }
+  .rigat.nuova { animation: entra .18s ease-out; }
+  @keyframes entra { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  .rigat.errore { border-color: #e08080; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding-right: 34px; }
+  .chips button { min-width: 44px; padding: 9px 10px; font-size: 15px; border-radius: 20px; border: 1px solid #bbb; background: #f2f2f2; color: #222; }
+  .chips button.on { background: #ffd700; border-color: #c9a800; font-weight: 700; }
+  .chips button:disabled { opacity: .35; text-decoration: line-through; }
+  .del { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: #f3d6d6; color: #a00; font-size: 18px; line-height: 30px; padding: 0; }
+  .qta { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .qta span { flex: 1; color: #555; font-size: 15px; }
+  .qta button { width: 46px; height: 46px; border-radius: 12px; border: 1px solid #bbb; background: #eee; font-size: 24px; color: #222; padding: 0; }
+  .qta input { width: 96px; text-align: center; font-size: 24px; font-weight: 700; padding: 8px; }
+  #aggiungi { width: 100%; padding: 14px; font-size: 18px; font-weight: 700; border: 2px dashed #c9a800; border-radius: 14px; background: #fffbe6; color: #8a6d00; }
+  #pr { font-size: 22px; }
   #riepilogo { text-align: center; color: #555; min-height: 1.4em; margin: 10px 0; }
   #invia { width: 100%; height: 62px; font-size: 22px; font-weight: 700; border: 0; border-radius: 12px; background: #ffd700; color: #222; margin-top: 6px; }
   #invia:disabled { opacity: .45; }
@@ -65,13 +77,12 @@
     <div><label for="ct">Cotta</label><input id="ct" maxlength="10" autocapitalize="characters" autocomplete="off"></div>
   </div>
 
-  <label>Taglia</label>
-  <div class="taglie" id="taglie"></div>
+  <div class="sezione"><label>Taglie e capi</label><span id="totCapi"></span></div>
+  <div id="righe"></div>
+  <button id="aggiungi" type="button">＋ Aggiungi taglia</button>
 
-  <div class="due">
-    <div><label for="capi">N. capi</label><input id="capi" type="number" inputmode="numeric" min="1" max="99999"></div>
-    <div><label for="pr">Prezzo a maglia € <small style="font-weight:400;color:#777">(facoltativo)</small></label><input id="pr" inputmode="decimal" placeholder="es. 1,20"></div>
-  </div>
+  <label for="pr">Prezzo a maglia € <small style="font-weight:400;color:#777">(facoltativo, uguale per tutte le taglie)</small></label>
+  <input id="pr" inputmode="decimal" placeholder="es. 1,20">
 
   <label for="note">Note <small style="font-weight:400;color:#777">(facoltative)</small></label>
   <textarea id="note" rows="2" maxlength="300"></textarea>
@@ -91,8 +102,9 @@
 
 <script>
 'use strict';
-const VERSIONE = '1.0';
+const VERSIONE = '1.1';
 const TAGLIE = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Taglia unica'];
+const CORTO = { 'Taglia unica': 'Unica' };
 const $ = id => document.getElementById(id);
 $('versione').textContent = 'BonnyUtilsPhone v' + VERSIONE;
 
@@ -127,18 +139,69 @@ function lampo(id) {
 }
 
 // ---------------------------------------------------------------- modulo
-let taglia = '';
-for (const t of TAGLIE) {
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.textContent = t;
-  if (t === 'Taglia unica') b.className = 'unica';
-  b.onclick = () => {
-    taglia = taglia === t ? '' : t;
-    for (const x of $('taglie').children) x.classList.toggle('on', x.textContent === taglia);
-    aggiorna();
-  };
-  $('taglie').appendChild(b);
+// Ogni riga è una taglia con il suo numero di capi. Commessa, articolo, cotta e prezzo valgono per tutte.
+let righe = [];
+
+function nuovaRiga(fuoco) {
+  const usate = righe.map(r => r.tg);
+  const ultima = righe.length ? TAGLIE.indexOf(righe[righe.length - 1].tg) : -1;
+  // propone la taglia successiva all'ultima, se libera
+  let tg = '';
+  if (righe.length && ultima >= 0) {
+    for (let i = ultima + 1; i < TAGLIE.length - 1; i++) if (!usate.includes(TAGLIE[i])) { tg = TAGLIE[i]; break; }
+  }
+  righe.push({ tg, capi: '' });
+  disegnaRighe(fuoco === false ? -1 : righe.length - 1);
+}
+
+function disegnaRighe(fuoco) {
+  const box = $('righe');
+  box.innerHTML = '';
+  righe.forEach((r, i) => {
+    const el = document.createElement('div');
+    el.className = 'rigat' + (i === fuoco ? ' nuova' : '');
+    const chips = document.createElement('div');
+    chips.className = 'chips';
+    for (const t of TAGLIE) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = CORTO[t] || t;
+      b.className = r.tg === t ? 'on' : '';
+      b.disabled = r.tg !== t && righe.some((x, j) => j !== i && x.tg === t);
+      b.onclick = () => { r.tg = r.tg === t ? '' : t; disegnaRighe(); };
+      chips.appendChild(b);
+    }
+    el.appendChild(chips);
+    if (righe.length > 1) {
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'del'; del.textContent = '×'; del.title = 'Togli';
+      del.onclick = () => { righe.splice(i, 1); disegnaRighe(); };
+      el.appendChild(del);
+    }
+    const q = document.createElement('div');
+    q.className = 'qta';
+    const lbl = document.createElement('span');
+    lbl.textContent = 'Capi' + (r.tg ? ' taglia ' + r.tg : '');
+    const meno = document.createElement('button'); meno.type = 'button'; meno.textContent = '−';
+    const piu = document.createElement('button'); piu.type = 'button'; piu.textContent = '+';
+    const inp = document.createElement('input');
+    inp.type = 'number'; inp.inputMode = 'numeric'; inp.min = 1; inp.max = 99999; inp.placeholder = '0';
+    inp.value = r.capi;
+    inp.oninput = () => { r.capi = inp.value; aggiorna(); };
+    meno.onclick = () => { r.capi = String(Math.max(1, (parseInt(r.capi, 10) || 1) - 1)); inp.value = r.capi; aggiorna(); };
+    piu.onclick = () => { r.capi = String(Math.min(99999, (parseInt(r.capi, 10) || 0) + 1)); inp.value = r.capi; aggiorna(); };
+    q.append(lbl, meno, inp, piu);
+    el.appendChild(q);
+    box.appendChild(el);
+    if (i === fuoco) setTimeout(() => inp.focus(), 50);
+  });
+  aggiorna();
+}
+$('aggiungi').onclick = () => nuovaRiga(true);
+
+function righeValide() {
+  const ok = righe.filter(r => parseInt(r.capi, 10) > 0);
+  return ok.map(r => ({ tg: r.tg, capi: parseInt(r.capi, 10) }));
 }
 
 function prezzo() {
@@ -149,21 +212,38 @@ function prezzo() {
 }
 
 let inInvio = false;
+function fogliDi(n) { return Math.floor(n / 25) + (n % 25 ? 1 : 0); }
 function aggiorna() {
-  const n = parseInt($('capi').value, 10);
+  const valide = righeValide();
+  const n = valide.reduce((a, r) => a + r.capi, 0);
+  const fogli = valide.reduce((a, r) => a + fogliDi(r.capi), 0);
+  // con più taglie ognuna deve avere la sua taglia, tutte diverse
+  const piu = righe.length > 1;
+  let problema = '';
+  righe.forEach((r, i) => {
+    const el = $('righe').children[i];
+    const male = piu && (!r.tg || !(parseInt(r.capi, 10) > 0));
+    if (el) el.classList.toggle('errore', male);
+    if (male && !problema) problema = !r.tg ? 'Scegli la taglia in ogni riga' : 'Metti i capi in ogni riga';
+  });
+  $('totCapi').textContent = n > 0 ? n + ' capi' : '';
   if (n > 0) {
-    const pieni = Math.floor(n / 25), resto = n % 25, fogli = pieni + (resto ? 1 : 0);
-    let s = fogli + (fogli === 1 ? ' foglio' : ' fogli') + ' (' + pieni + ' da 25' + (resto ? ' + 1 da ' + resto : '') + ')';
+    let s = (valide.length > 1 ? valide.length + ' taglie · ' : '') + n + ' capi · ' + fogli + (fogli === 1 ? ' foglio' : ' fogli');
     const p = prezzo();
     if (p) s += ' · Totale ' + (n * Number(p)).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
-    $('riepilogo').textContent = s;
+    $('riepilogo').textContent = problema || s;
   } else {
-    $('riepilogo').textContent = '';
+    $('riepilogo').textContent = problema;
   }
-  const pronto = $('co').value.trim() && $('ar').value.trim() && $('ct').value.trim() && n > 0 && n <= 99999 && prezzo() !== null;
+  $('riepilogo').style.color = problema ? '#b00000' : '';
+  const pronto = $('co').value.trim() && $('ar').value.trim() && $('ct').value.trim() && n > 0 && n <= 99999 && !problema && prezzo() !== null;
   $('invia').disabled = !pronto || inInvio;
 }
-for (const id of ['co', 'ar', 'ct', 'capi', 'pr', 'note']) $(id).addEventListener('input', aggiorna);
+for (const id of ['co', 'ar', 'ct', 'pr', 'note']) $(id).addEventListener('input', aggiorna);
+
+function testoTaglie(rr) {
+  return rr.map(r => (r.tg || 'senza taglia') + ' × ' + r.capi).join(', ');
+}
 
 // ---------------------------------------------------------------- cifratura (AES-256-CBC + HMAC-SHA256)
 function b64url(buf) {
@@ -190,14 +270,16 @@ async function cifra(testo) {
 // ---------------------------------------------------------------- invio
 async function invia() {
   if (inInvio) return;
-  const n = parseInt($('capi').value, 10);
+  const rr = righeValide();
+  const n = rr.reduce((a, r) => a + r.capi, 0);
   const ordine = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
     co: $('co').value.trim(), ar: $('ar').value.trim(), ct: $('ct').value.trim(),
-    tg: taglia, capi: n, pr: prezzo() || '', note: $('note').value.trim(), ts: new Date().toISOString()
+    righe: rr, tg: rr.length === 1 ? rr[0].tg : '', capi: n,
+    pr: prezzo() || '', note: $('note').value.trim(), ts: new Date().toISOString()
   };
   if (!confirm('Inviare l\'ordine?\n\nComm. ' + ordine.co + ' · Art. ' + ordine.ar + ' · Cotta ' + ordine.ct +
-      '\nTaglia ' + (ordine.tg || '-') + ' · ' + n + ' capi' + (ordine.pr ? ' · € ' + ordine.pr.replace('.', ',') + ' a maglia' : ''))) return;
+      '\n' + testoTaglie(rr) + '\nTotale ' + n + ' capi' + (ordine.pr ? ' · € ' + ordine.pr.replace('.', ',') + ' a maglia' : ''))) return;
 
   inInvio = true; aggiorna();
   $('esito').className = 'attesa';
@@ -227,9 +309,9 @@ async function invia() {
     salvaStorico(ordine);
     $('esito').className = 'ok';
     $('esito').textContent = confermato ? '✅ Ordine inviato!' : '✅ Ordine inviato';
-    for (const id of ['co', 'ar', 'ct', 'capi', 'pr', 'note']) $(id).value = '';
-    taglia = '';
-    for (const x of $('taglie').children) x.classList.remove('on');
+    for (const id of ['co', 'ar', 'ct', 'pr', 'note']) $(id).value = '';
+    righe = [];
+    nuovaRiga(false);
   } catch (e) {
     $('esito').className = 'err';
     $('esito').textContent = '❌ Ordine non inviato: ' + (navigator.onLine === false ? 'nessuna connessione' : e.message) + '. Riprova.';
@@ -257,7 +339,7 @@ function mostraStorico() {
   for (const o of s) {
     const li = document.createElement('li');
     const d = new Date(o.ts);
-    li.textContent = 'Comm. ' + o.co + ' · Art. ' + o.ar + ' · ' + (o.tg || '-') + ' · ' + o.capi + ' capi' +
+    li.textContent = 'Comm. ' + o.co + ' · Art. ' + o.ar + ' · ' + (o.righe ? testoTaglie(o.righe) : (o.tg || '-')) + ' · ' + o.capi + ' capi' +
       (o.pr ? ' · € ' + String(o.pr).replace('.', ',') : '');
     const small = document.createElement('small');
     small.textContent = '  ' + d.toLocaleDateString('it-IT') + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
@@ -267,7 +349,7 @@ function mostraStorico() {
   }
 }
 mostraStorico();
-aggiorna();
+nuovaRiga(false);
 </script>
 </body>
 </html>
